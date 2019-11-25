@@ -123,51 +123,20 @@ uint16_t Coap::put(IPAddress ip, int port, const char* url, const char* payload,
     return this->send(ip, port, url, COAP_CON, COAP_PUT, NULL, 0, (uint8_t *)payload, payloadlen);
 }
 
+uint16_t Coap::post(IPAddress ip, int port, const char* url, const char* payload, int payloadlen) {
+    return this->send(ip, port, url, COAP_CON, COAP_POST, NULL, 0, (uint8_t *)payload, payloadlen, COAP_APPLICATION_CBOR);
+}
+
+uint16_t Coap::post(IPAddress ip, int port, const char* url, uint8_t* payload, int payloadlen, const char* queryParameter) {
+    return this->send(ip, port, url, COAP_CON, COAP_POST, NULL, 0, payload, payloadlen, COAP_APPLICATION_CBOR, queryParameter);
+}
+
 uint16_t Coap::send(IPAddress ip, int port, const char* url, COAP_TYPE type, COAP_METHOD method, uint8_t *token, uint8_t tokenlen, uint8_t *payload, uint32_t payloadlen) {
     return this->send(ip, port, url, COAP_CON, COAP_PUT, NULL, 0, (uint8_t *)payload, payloadlen, COAP_NONE);
 }
 
 uint16_t Coap::send(IPAddress ip, int port, const char* url, COAP_TYPE type, COAP_METHOD method, uint8_t *token, uint8_t tokenlen, uint8_t *payload, uint32_t payloadlen, COAP_CONTENT_TYPE content_type) {
-
-    // make packet
-    CoapPacket packet;
-
-    packet.type = type;
-    packet.code = method;
-    packet.token = token;
-    packet.tokenlen = tokenlen;
-    packet.payload = payload;
-    packet.payloadlen = payloadlen;
-    packet.optionnum = 0;
-    packet.messageid = rand();
-
-    // use URI_HOST UIR_PATH
-    String ipaddress = String(ip[0]) + String(".") + String(ip[1]) + String(".") + String(ip[2]) + String(".") + String(ip[3]); 
-	packet.addOption(COAP_URI_HOST, ipaddress.length(), (uint8_t *)ipaddress.c_str());
-
-    // parse url
-    unsigned int idx = 0;
-    for (unsigned int i = 0; i < strlen(url); i++) {
-        if (url[i] == '/') {
-			packet.addOption(COAP_URI_PATH, i-idx, (uint8_t *)(url + idx));
-            idx = i + 1;
-        }
-    }
-
-    if (idx <= strlen(url)) {
-		packet.addOption(COAP_URI_PATH, strlen(url)-idx, (uint8_t *)(url + idx));
-    }
-
-	// if Content-Format option
-	uint8_t optionBuffer[2] {0};
-	if (content_type != COAP_NONE) {
-		optionBuffer[0] = ((uint16_t)content_type & 0xFF00) >> 8;
-		optionBuffer[1] = ((uint16_t)content_type & 0x00FF) ;
-		packet.addOption(COAP_CONTENT_FORMAT, 2, optionBuffer);
-	}
-
-    // send packet
-    return this->sendPacket(packet, ip, port);
+    return this->send(ip, port, url, type, method, token, tokenlen, payload, payloadlen, content_type, nullptr);
 }
 
 // TODO: De-Duplicate with method above
@@ -210,7 +179,9 @@ uint16_t Coap::send(IPAddress ip, int port, const char* url, COAP_TYPE type, COA
 		packet.addOption(COAP_CONTENT_FORMAT, 2, optionBuffer);
 	}
 
-    packet.addOption(COAP_URI_QUERY, strlen(queryParameter), (uint8_t*) queryParameter);
+    if (queryParameter != nullptr) {
+        packet.addOption(COAP_URI_QUERY, strlen(queryParameter), (uint8_t*) queryParameter);
+    }
 
     // send packet
     return this->sendPacket(packet, ip, port);
