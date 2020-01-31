@@ -1,6 +1,9 @@
 #include "coap-simple.h"
 #include "Arduino.h"
 
+// FIXME: Remove this!
+#include <log.hpp>
+
 #define LOGGING
 
 void CoapPacket::addOption(uint8_t number, uint8_t length, uint8_t *opt_payload)
@@ -33,7 +36,7 @@ uint16_t Coap::sendPacket(CoapPacket &packet, IPAddress ip) {
 }
 
 uint16_t Coap::sendPacket(CoapPacket &packet, IPAddress ip, int port) {
-    uint8_t buffer[BUF_MAX_SIZE];
+    uint8_t* buffer = (uint8_t*) malloc(BUF_MAX_SIZE);
     uint8_t *p = buffer;
     uint16_t running_delta = 0;
     uint16_t packetSize = 0;
@@ -100,10 +103,13 @@ uint16_t Coap::sendPacket(CoapPacket &packet, IPAddress ip, int port) {
         packetSize += 1 + packet.payloadlen;
     }
 
+		logln(packetSize);
+
     _udp->beginPacket(ip, port);
     _udp->write(buffer, packetSize);
     _udp->endPacket();
 
+		free(buffer);
     return packet.messageid;
 }
 
@@ -155,7 +161,7 @@ uint16_t Coap::send(IPAddress ip, int port, const char* url, COAP_TYPE type, COA
     packet.messageid = rand();
 
     // use URI_HOST UIR_PATH
-    String ipaddress = String(ip[0]) + String(".") + String(ip[1]) + String(".") + String(ip[2]) + String(".") + String(ip[3]); 
+    String ipaddress = String(ip[0]) + String(".") + String(ip[1]) + String(".") + String(ip[2]) + String(".") + String(ip[3]);
 	packet.addOption(COAP_URI_HOST, ipaddress.length(), (uint8_t *)ipaddress.c_str());
 
     // parse url
@@ -288,7 +294,7 @@ bool Coap::loop() {
             resp(packet, _udp->remoteIP(), _udp->remotePort());
 
         } else {
-            
+
             String url = "";
             // call endpoint url function
             for (int i = 0; i < packet.optionnum; i++) {
@@ -300,7 +306,7 @@ bool Coap::loop() {
                       url += "/";
                     url += urlname;
                 }
-            }        
+            }
 
             if (!uri.find(url)) {
                 sendResponse(_udp->remoteIP(), _udp->remotePort(), packet.messageid, NULL, 0,
@@ -312,7 +318,7 @@ bool Coap::loop() {
 
         /* this type check did not use.
         if (packet.type == COAP_CON) {
-            // send response 
+            // send response
              sendResponse(_udp->remoteIP(), _udp->remotePort(), packet.messageid);
         }
          */
